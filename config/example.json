@@ -1,0 +1,5 @@
+{
+  "listenPort": "1234",
+  "redirectPort": "1234",
+  "recirectHost": "hostnameGoesHere"
+}
