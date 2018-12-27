@@ -2,7 +2,6 @@ package main
 
 import "fmt"
 import "encoding/json"
-// import "io/ioutil"
 import "os"
 import "net/http"
 import "net/http/httputil"
