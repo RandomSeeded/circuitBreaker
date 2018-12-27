@@ -74,5 +74,6 @@ func main() {
     serveReverseProxy("http://localhost:8082", res, req)
   })
 
+  fmt.Printf("Listening on port %v", config.ListenPort)
   http.ListenAndServe(config.ListenPort, nil)
 }
