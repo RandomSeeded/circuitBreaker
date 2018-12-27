@@ -94,16 +94,18 @@ func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request
   proxy.ServeHTTP(res, req)
 }
 
-func handleRequest(res http.ResponseWriter, req *http.Request) {
-  config, _ := readConfig()
-  failureRatio, _ := strconv.ParseFloat(config.FailureRatio, 32)
+// TODO (nw): get clarification on what best practices are for getting the config object everywhere are
+func makeRequestHandler(config Configuration) func(http.ResponseWriter, *http.Request) {
+  return func (res http.ResponseWriter, req *http.Request) {
+    failureRatio, _ := strconv.ParseFloat(config.FailureRatio, 32)
 
-  fmt.Printf("successes %v failures %v responses %v\n", numSuccesses, numFailures, responses)
-  if len(responses) == config.LookbackPeriod && float64(numSuccesses) / float64(numSuccesses + numFailures) < failureRatio {
-    fmt.Printf("Circuit break!\n")
-    // TODO (nw): put the circuit break logic here
+    fmt.Printf("successes %v failures %v responses %v\n", numSuccesses, numFailures, responses)
+    if len(responses) == config.LookbackPeriod && float64(numSuccesses) / float64(numSuccesses + numFailures) < failureRatio {
+      fmt.Printf("Circuit break!\n")
+      // TODO (nw): put the circuit break logic here
+    }
+    serveReverseProxy("http://localhost:8082", res, req)
   }
-  serveReverseProxy("http://localhost:8082", res, req)
 }
 
 func main() {
@@ -114,7 +116,7 @@ func main() {
     os.Exit(1)
   }
 
-  http.HandleFunc("/", handleRequest)
+  http.HandleFunc("/", makeRequestHandler(config))
 
   fmt.Printf("Listening on port %v\n", config.ListenPort)
   http.ListenAndServe(config.ListenPort, nil)
