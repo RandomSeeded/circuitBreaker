@@ -1,5 +1,7 @@
 {
   "ListenPort": "1234",
   "RedirectPort": "1234",
-  "RedirectHost": "hostnameGoesHere"
+  "RedirectHost": "hostnameGoesHere",
+  "FailureRatio": ".5",
+  "LookbackPeriod": 100
 }
