@@ -17,13 +17,8 @@ type Configuration struct {
   LookbackPeriod  int
 }
 
-var config Configuration
 func readConfig() (Configuration, error) {
-  if config != (Configuration{}) {
-    return config, nil
-  }
-
-  config = Configuration{}
+  config := Configuration{}
 
   configurationFile, openErr := os.Open("./config/config.json")
   if openErr != nil {
@@ -44,10 +39,8 @@ var numSuccesses = 0
 var numFailures = 0
 var responses = make([]string, 0)
 
-func flushQueue(queue []string) (flushedQueue []string) {
-  config, _ := readConfig()
-
-  if len(queue) <= config.LookbackPeriod {
+func flushQueue(queue []string, lookbackPeriod int) (flushedQueue []string) {
+  if len(queue) <= lookbackPeriod {
     return queue
   }
 
@@ -61,20 +54,24 @@ func flushQueue(queue []string) (flushedQueue []string) {
   return queue
 }
 
-func TrackSuccess(_ *http.Response) (err error) {
-  responses = append(responses, "success")
-  numSuccesses++
-  responses = flushQueue(responses)
-  return nil
+func makeSuccessTracker(lookbackPeriod int) func (*http.Response) error {
+  return func (_ *http.Response) (err error) {
+    responses = append(responses, "success")
+    numSuccesses++
+    responses = flushQueue(responses, lookbackPeriod)
+    return nil
+  }
 }
 
-func TrackFailure(_ http.ResponseWriter, _ *http.Request, _ error) {
-  responses = append(responses, "failure")
-  numFailures++
-  responses = flushQueue(responses)
+func makeFailureTracker(lookbackPeriod int) func (http.ResponseWriter, *http.Request, error) {
+  return func (_ http.ResponseWriter, _ *http.Request, _ error) {
+    responses = append(responses, "failure")
+    numFailures++
+    responses = flushQueue(responses, lookbackPeriod)
+  }
 }
 
-func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request) {
+func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request, lookbackPeriod int) {
   url, parseErr := url.Parse(target)
   if parseErr != nil {
     fmt.Printf("%v", parseErr)
@@ -82,8 +79,8 @@ func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request
 
   // Reverse proxy
   proxy := httputil.NewSingleHostReverseProxy(url)
-  proxy.ModifyResponse = TrackSuccess
-  proxy.ErrorHandler = TrackFailure
+  proxy.ModifyResponse = makeSuccessTracker(lookbackPeriod)
+  proxy.ErrorHandler = makeFailureTracker(lookbackPeriod)
 
   // Set headers (ssl forwarding)
   req.URL.Host = url.Host
@@ -104,7 +101,7 @@ func makeRequestHandler(config Configuration) func(http.ResponseWriter, *http.Re
       fmt.Printf("Circuit break!\n")
       // TODO (nw): put the circuit break logic here
     }
-    serveReverseProxy("http://localhost:8082", res, req)
+    serveReverseProxy("http://localhost:8082", res, req, config.LookbackPeriod)
   }
 }
 
