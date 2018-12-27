@@ -44,14 +44,11 @@ var numSuccesses = 0
 var numFailures = 0
 var responses = make([]string, 0)
 
-func flushQueue(queue []string) (flushedQueue []string, err error) {
-  config, err := readConfig()
-  if err != nil {
-    return queue, err
-  }
+func flushQueue(queue []string) (flushedQueue []string) {
+  config, _ := readConfig()
 
   if len(queue) <= config.LookbackPeriod {
-    return queue, nil
+    return queue
   }
 
   oldestResponse := queue[0]
@@ -61,20 +58,20 @@ func flushQueue(queue []string) (flushedQueue []string, err error) {
   } else {
     numFailures--
   }
-  return queue, nil
+  return queue
 }
 
 func TrackSuccess(_ *http.Response) (err error) {
   responses = append(responses, "success")
   numSuccesses++
-  responses, _ = flushQueue(responses)
+  responses = flushQueue(responses)
   return nil
 }
 
 func TrackFailure(_ http.ResponseWriter, _ *http.Request, _ error) {
   responses = append(responses, "failure")
   numFailures++
-  responses, _ = flushQueue(responses)
+  responses = flushQueue(responses)
 }
 
 func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request) {
